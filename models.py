@@ -17,7 +17,7 @@ class Post(Base):
     __tablename__ = "posts"
 
     id = Column(Integer, primary_key=True, index=True)
-    titulo = Column(String, unique=True, index=True)
+    titulo = Column(String, index=True)
     contenido = Column(String)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), index=True)
     usuario = relationship("Usuario", back_populates="posts")

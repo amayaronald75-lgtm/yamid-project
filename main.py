@@ -188,7 +188,7 @@ Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     db.commit()
     db.refresh(post_db)
 
-    return{"mensaje": "Post actulizado correctamente"}
+    return{"mensaje": "Post actualizado correctamente"}
 
 @app.get("/posts", response_model=list[PostResponse])
 def obtener_mis_post(
@@ -196,10 +196,15 @@ def obtener_mis_post(
     offset: int = 0,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
-    search: str = None
+    search: str = ""
 ):
-   posts_db = db.query(Post).filter(Post.usuario_id == current_user.id).filter(Post.titulo.contains(search)).order_by(Post.id.desc()).offset(offset).limit(limit)
+   query = db.query(Post).filter(Post.usuario_id == current_user.id)
 
+   if search:
+       query = query.filter(Post.titulo.contains(search))
+    
+   posts_db = query.order_by(Post.id.desc()).offset(offset).limit(limit).all
+   
    return posts_db
 
 # Login Schema

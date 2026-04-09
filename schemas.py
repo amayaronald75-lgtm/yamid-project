@@ -26,7 +26,6 @@ class UsuarioUpdate(BaseModel):
 class PostCreate(BaseModel):
     titulo: str
     contenido: str
-    usuario_id: int
 
 class PostResponse(BaseModel):
     id: int
