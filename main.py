@@ -121,6 +121,12 @@ def obterner_posts_usuario(
             status_code=404,
             detail="Usuario no encontrado"
         )
+
+    if current_user.id != usuario_id:
+        raise HTTPException(
+            status_code=403,
+            detail="No autorizado"
+        )
     
     posts = db.query(Post).filter(Post.usuario_id == usuario_id).offset(offset).limit(limit).all()
 
@@ -203,7 +209,7 @@ def obtener_mis_post(
    if search:
        query = query.filter(Post.titulo.contains(search))
     
-   posts_db = query.order_by(Post.id.desc()).offset(offset).limit(limit).all
+   posts_db = query.order_by(Post.id.desc()).offset(offset).limit(limit).all()
    
    return posts_db
 
@@ -237,4 +243,3 @@ Session = Depends(get_db)):
         "access_token": access_token,
         "token_type": "bearer"
     }
-
