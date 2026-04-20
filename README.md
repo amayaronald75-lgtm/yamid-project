@@ -2,7 +2,7 @@
 
 API desarrollada con FastAPI para la gestión de usuarios y posts, incluyendo autenticación con JWT, hash de contraseñas y operaciones CRUD sobre los recursos principales.
 
-## Características
+## 🚀 Características
 
 - Registro de usuarios
 - Inicio de sesión con token JWT
@@ -12,7 +12,7 @@ API desarrollada con FastAPI para la gestión de usuarios y posts, incluyendo au
 - Protección de rutas mediante autenticación
 - Base de datos SQLite con SQLAlchemy ORM
 
-## Tecnologías usadas
+## 🛠️ Tecnologías usadas
 
 - Python
 - FastAPI
@@ -21,7 +21,7 @@ API desarrollada con FastAPI para la gestión de usuarios y posts, incluyendo au
 - Passlib
 - Python-Jose
 
-## Estructura del proyecto
+## 🧩 Estructura del proyecto
 
 ```text
 backend_project/
@@ -34,7 +34,7 @@ backend_project/
 └── README.md
 ```
 
-## Instalación
+## 🔧 Instalación
 
 1. Clona el repositorio:
 
@@ -62,7 +62,7 @@ venv\Scripts\activate
 pip install fastapi uvicorn sqlalchemy passlib[bcrypt] python-jose python-multipart
 ```
 
-## Ejecución
+## ⚙️ Ejecución
 
 Inicia el servidor con:
 
@@ -75,11 +75,11 @@ Luego abre en el navegador:
 - Documentación Swagger: `http://127.0.0.1:8000/docs`
 - Documentación Redoc: `http://127.0.0.1:8000/redoc`
 
-## Autenticación
+## ✅ Autenticación
 
 El proyecto utiliza JWT para proteger rutas.
 
-### Flujo básico
+### 🔀 Flujo básico
 
 1. Crear un usuario en `POST /usuarios/`
 2. Iniciar sesión en `POST /login`
@@ -90,7 +90,7 @@ El proyecto utiliza JWT para proteger rutas.
 Authorization: Bearer tu_token
 ```
 
-## Endpoints principales
+## 📡 Endpoints principales
 
 ### Usuarios
 
@@ -112,7 +112,7 @@ Authorization: Bearer tu_token
 - `PUT /posts/{post_id}` Actualizar un post
 - `DELETE /posts/{post_id}` Eliminar un post
 
-## Modelos principales
+## 🗂️ Modelos principales
 
 ### Usuario
 
@@ -129,10 +129,10 @@ Authorization: Bearer tu_token
 - `contenido`
 - `usuario_id`
 
-## Estado del proyecto
+## 📌 Estado del proyecto
 
 El proyecto cuenta con autenticación, manejo de usuarios y operaciones sobre posts. Puede seguir ampliándose con mejoras como validaciones más estrictas, manejo de errores más robusto y separación por routers.
 
-## Autor
+## 👨‍💻 Autor
 
 Desarrollado por `amayaronald75-lgtm`.
