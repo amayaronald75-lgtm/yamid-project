@@ -1,5 +1,8 @@
+import os
+
 from passlib.context import CryptContext
 from jose import jwt
+from jose.exceptions import JWTError
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,7 +17,7 @@ pwd_context = CryptContext(
 )
 
 # configuración del JWT
-SECRET_KEY = "tu_clave_secreta"
+SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -53,7 +56,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
                 detail="Token inválido"
             )
 
-    except:
+        user_id = int(user_id)
+
+    except (JWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No se pudo validar el token"

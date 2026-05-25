@@ -10,7 +10,7 @@ class Usuario(Base):
     email = Column(String, unique=True, index=True)
     edad = Column(Integer)
     password = Column(String)
-    posts = relationship("Post", back_populates="usuario")
+    posts = relationship("Post", back_populates="usuario", cascade="all, delete-orphan")
 
 
 class Post(Base):
@@ -21,4 +21,3 @@ class Post(Base):
     contenido = Column(String)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), index=True)
     usuario = relationship("Usuario", back_populates="posts")
-

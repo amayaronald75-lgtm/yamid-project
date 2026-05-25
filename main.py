@@ -1,10 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException, status
-from pydantic import BaseModel
-from database import engine, Base, SessionLocal
-import models
+from database import engine, Base, get_db
 from models import Usuario, Post
-from schemas import UsuarioCreate, UsuarioResponse, UsuarioUpdate, PostResponse, PostCreate, LoginRequest, PostUpdate
+from schemas import UsuarioCreate, UsuarioResponse, UsuarioUpdate, PostResponse, PostCreate, PostSimpleResponse, PostUpdate, TokenResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from security import verify_password, create_access_token, hash_password, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -12,13 +11,6 @@ app = FastAPI()
 
 #Crear las tablas en la base de datos 
 Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @app.get("/")
 def read_root():
@@ -29,6 +21,23 @@ def crear_usuario(
     usuario: UsuarioCreate,
     db: Session = Depends(get_db)
 ):
+    duplicate_filters = [Usuario.username == usuario.username]
+
+    if usuario.email is not None:
+        duplicate_filters.append(Usuario.email == usuario.email)
+
+    usuario_existente = (
+        db.query(Usuario)
+        .filter(or_(*duplicate_filters))
+        .first()
+    )
+
+    if usuario_existente:
+        raise HTTPException(
+            status_code=400,
+            detail="Username o email ya registrado"
+        )
+
     hashed_password = hash_password(usuario.password)
 
     nuevo_usuario = Usuario(
@@ -73,11 +82,36 @@ Session = Depends(get_db)):
             status_code=404,
             detail="Usuario no encontrado"
         )
+
+    if usuario.username is not None:
+        username_existente = (
+            db.query(Usuario)
+            .filter(Usuario.username == usuario.username, Usuario.id != usuario_id)
+            .first()
+        )
+
+        if username_existente:
+            raise HTTPException(
+                status_code=400,
+                detail="Username ya registrado"
+            )
     
     if usuario.username is not None:
         usuario_db.username = usuario.username
 
     if usuario.email is not None:
+        email_existente = (
+            db.query(Usuario)
+            .filter(Usuario.email == usuario.email, Usuario.id != usuario_id)
+            .first()
+        )
+
+        if email_existente:
+            raise HTTPException(
+                status_code=400,
+                detail="Email ya registrado"
+            )
+
         usuario_db.email = usuario.email
 
     if usuario.edad is not None:
@@ -106,7 +140,7 @@ Session = Depends(get_db)):
 
 # Un usaurio muchos posts
 
-@app.get("/usuarios/{usuario_id}/posts", response_model=list[PostResponse])
+@app.get("/usuarios/{usuario_id}/posts", response_model=list[PostSimpleResponse])
 def obterner_posts_usuario(
     usuario_id: int,
     limit: int = 10,
@@ -132,7 +166,7 @@ def obterner_posts_usuario(
 
     return posts
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
+@app.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 def crear_post(post: PostCreate, db:
 Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
 
@@ -169,7 +203,7 @@ Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
 
     return{"mensaje": "Post eliminado correctamente"}
 
-@app.put("/posts/{post_id}")
+@app.put("/posts/{post_id}", response_model=PostResponse)
 def actualizar_post(post_id: int, post: PostUpdate, db:
 Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     post_db = db.query(Post).filter(Post.id == post_id).first()
@@ -194,7 +228,7 @@ Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     db.commit()
     db.refresh(post_db)
 
-    return{"mensaje": "Post actualizado correctamente"}
+    return post_db
 
 @app.get("/posts", response_model=list[PostResponse])
 def obtener_mis_post(
@@ -215,7 +249,7 @@ def obtener_mis_post(
 
 # Login Schema
 
-@app.post("/login")
+@app.post("/login", response_model=TokenResponse)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db:
 Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.username == form_data.username).first()
@@ -234,7 +268,7 @@ Session = Depends(get_db)):
         )
     
     token_data = {
-        "sub": usuario.id
+        "sub": str(usuario.id)
     }
 
     access_token = create_access_token(token_data)
