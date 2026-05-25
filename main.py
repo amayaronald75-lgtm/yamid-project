@@ -1,257 +1,32 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from database import engine, Base, get_db
-from models import Usuario, Post
-from schemas import UsuarioCreate, UsuarioResponse, UsuarioUpdate, PostResponse, PostCreate, PostSimpleResponse, PostUpdate, TokenResponse
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from security import verify_password, create_access_token, hash_password, get_current_user
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from database import Base, engine, get_db
+from models import Usuario
+from routers import posts, users
+from schemas import TokenResponse
+from security import create_access_token, verify_password
 
 app = FastAPI()
 
-#Crear las tablas en la base de datos 
+# Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
+
+app.include_router(users.router)
+app.include_router(posts.router)
+
 
 @app.get("/")
 def read_root():
-    return{"mensaje": "Api funcionando correctamente"}
+    return {"mensaje": "Api funcionando correctamente"}
 
-@app.post("/usuarios/", response_model=UsuarioResponse)
-def crear_usuario(
-    usuario: UsuarioCreate,
-    db: Session = Depends(get_db)
-):
-    duplicate_filters = [Usuario.username == usuario.username]
-
-    if usuario.email is not None:
-        duplicate_filters.append(Usuario.email == usuario.email)
-
-    usuario_existente = (
-        db.query(Usuario)
-        .filter(or_(*duplicate_filters))
-        .first()
-    )
-
-    if usuario_existente:
-        raise HTTPException(
-            status_code=400,
-            detail="Username o email ya registrado"
-        )
-
-    hashed_password = hash_password(usuario.password)
-
-    nuevo_usuario = Usuario(
-        username=usuario.username,
-        email=usuario.email,
-        edad=usuario.edad,
-        password=hashed_password
-    )
-    
-    db.add(nuevo_usuario)
-    db.commit()
-    db.refresh(nuevo_usuario)
-
-    return nuevo_usuario
-
-@app.get("/usuarios/", response_model=list[UsuarioResponse])
-def obtener_usuarios(db: Session =
-Depends(get_db)):   
-    usuarios = db.query(Usuario).all()
-    return usuarios
-
-@app.get("/usuarios/{usuario_id}", response_model=UsuarioResponse)
-def obtener_usuario(usuario_id: int, db:
-Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-    
-    if usuario is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Usuario no encontrado"
-        )
-     
-    return usuario 
-
-@app.put("/usuarios/{usuario_id}", response_model=UsuarioResponse)
-def actualizar_usuario(usuario_id: int, usuario: UsuarioUpdate, db:
-Session = Depends(get_db)):
-    usuario_db = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-
-    if usuario_db is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Usuario no encontrado"
-        )
-
-    if usuario.username is not None:
-        username_existente = (
-            db.query(Usuario)
-            .filter(Usuario.username == usuario.username, Usuario.id != usuario_id)
-            .first()
-        )
-
-        if username_existente:
-            raise HTTPException(
-                status_code=400,
-                detail="Username ya registrado"
-            )
-    
-    if usuario.username is not None:
-        usuario_db.username = usuario.username
-
-    if usuario.email is not None:
-        email_existente = (
-            db.query(Usuario)
-            .filter(Usuario.email == usuario.email, Usuario.id != usuario_id)
-            .first()
-        )
-
-        if email_existente:
-            raise HTTPException(
-                status_code=400,
-                detail="Email ya registrado"
-            )
-
-        usuario_db.email = usuario.email
-
-    if usuario.edad is not None:
-        usuario_db.edad = usuario.edad
-    
-    db.commit()
-    db.refresh(usuario_db)
-    
-    return usuario_db
-
-@app.delete("/usuarios/{usuario_id}")
-def eliminar_usuario(usuario_id: int, db:
-Session = Depends(get_db)):
-    usuario_db = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-
-    if usuario_db is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Usuario no encontrado"
-        )
-    
-    db.delete(usuario_db)
-    db.commit()
-
-    return {"mensaje": "Usuario eliminado"}
-
-# Un usaurio muchos posts
-
-@app.get("/usuarios/{usuario_id}/posts", response_model=list[PostSimpleResponse])
-def obterner_posts_usuario(
-    usuario_id: int,
-    limit: int = 10,
-    offset: int = 0,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
-):
-    usuario_db = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-
-    if usuario_db is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Usuario no encontrado"
-        )
-
-    if current_user.id != usuario_id:
-        raise HTTPException(
-            status_code=403,
-            detail="No autorizado"
-        )
-    
-    posts = db.query(Post).filter(Post.usuario_id == usuario_id).offset(offset).limit(limit).all()
-
-    return posts
-
-@app.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
-def crear_post(post: PostCreate, db:
-Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
-
-    nuevo_post = Post(
-        titulo = post.titulo,
-        contenido = post.contenido,
-        usuario_id = current_user.id
-    )
-
-    db.add(nuevo_post)
-    db.commit()
-    db.refresh(nuevo_post)
-
-    return nuevo_post
-
-@app.delete("/posts/{post_id}")
-def eliminar_post(post_id: int, db:
-Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
-    post_db = db.query(Post).filter(Post.id == post_id).first()
-
-    if post_db is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Post no encontrado"
-        )
-    if post_db.usuario_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="No autorizado"
-        )
-    
-    db.delete(post_db)
-    db.commit()
-
-    return{"mensaje": "Post eliminado correctamente"}
-
-@app.put("/posts/{post_id}", response_model=PostResponse)
-def actualizar_post(post_id: int, post: PostUpdate, db:
-Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
-    post_db = db.query(Post).filter(Post.id == post_id).first()
-
-    if post_db is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Post no encontrado"
-        )
-    if post_db.usuario_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="No autorizado"
-        )
-    
-    if post.titulo is not None:
-        post_db.titulo = post.titulo
-    
-    if post.contenido is not None:
-        post_db.contenido = post.contenido
-    
-    db.commit()
-    db.refresh(post_db)
-
-    return post_db
-
-@app.get("/posts", response_model=list[PostResponse])
-def obtener_mis_post(
-    limit: int = 10,
-    offset: int = 0,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-    search: str = ""
-):
-   query = db.query(Post).filter(Post.usuario_id == current_user.id)
-
-   if search:
-       query = query.filter(Post.titulo.contains(search))
-    
-   posts_db = query.order_by(Post.id.desc()).offset(offset).limit(limit).all()
-   
-   return posts_db
-
-# Login Schema
 
 @app.post("/login", response_model=TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db:
-Session = Depends(get_db)):
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
     usuario = db.query(Usuario).filter(Usuario.username == form_data.username).first()
 
     if usuario is None:
@@ -259,21 +34,20 @@ Session = Depends(get_db)):
             status_code=401,
             detail="Credenciales incorrectas"
         )
-    
-    if not verify_password(form_data.password,
-    usuario.password):
+
+    if not verify_password(form_data.password, usuario.password):
         raise HTTPException(
             status_code=401,
             detail="Credenciales incorrectas"
         )
-    
+
     token_data = {
         "sub": str(usuario.id)
     }
 
     access_token = create_access_token(token_data)
 
-    return{
+    return {
         "access_token": access_token,
         "token_type": "bearer"
     }
